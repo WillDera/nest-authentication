@@ -7,6 +7,11 @@ export class RegisterDto {
   email: string;
 
   @IsString()
+  @MinLength(4)
+  @IsNotEmpty()
+  username: string;
+
+  @IsString()
   @IsNotEmpty()
   phone_number: string;
 

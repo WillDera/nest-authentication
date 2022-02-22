@@ -1,10 +1,11 @@
-import { Injectable } from '@nestjs/common';
+import { ForbiddenException, Injectable } from '@nestjs/common';
 import { PrismaService } from '../prisma/prisma.service';
-import { RegisterDto } from './dto';
+import { LoginDto, RegisterDto } from './dto';
 import * as bcrypt from 'bcrypt';
 import { Tokens } from './types';
 import { JwtService } from '@nestjs/jwt';
 import { env } from 'process';
+import { LoginUsernameDto } from './dto/loginUser.dto';
 
 @Injectable()
 export class AuthService {
@@ -16,6 +17,7 @@ export class AuthService {
     const newUser = await this.prisma.user.create({
       data: {
         email: dto.email,
+        username: dto.username,
         phone_number: dto.phone_number,
         hash,
       },
@@ -38,7 +40,40 @@ export class AuthService {
     });
   }
 
-  login() {}
+  async login(dto: LoginDto): Promise<Tokens> {
+    if (dto.email) {
+      const user = await this.prisma.user.findUnique({
+        where: {
+          email: dto.email,
+        },
+      });
+
+      if (!user) throw new ForbiddenException('Access Denied');
+
+      const passwordMatches = await bcrypt.compare(dto.password, user.hash);
+      if (!passwordMatches) throw new ForbiddenException('Access Denied');
+
+      const tokens = await this.getTokens(user.id, user.email);
+      await this.updateRtHash(user.id, tokens.refresh_token);
+      return tokens;
+    } else {
+      const user = await this.prisma.user.findUnique({
+        where: {
+          username: dto.username,
+        },
+      });
+
+      if (!user) throw new ForbiddenException('Access Denied');
+
+      const passwordMatches = await bcrypt.compare(dto.password, user.hash);
+      if (!passwordMatches) throw new ForbiddenException('Access Denied');
+
+      const tokens = await this.getTokens(user.id, user.username);
+      await this.updateRtHash(user.id, tokens.refresh_token);
+      return tokens;
+    }
+  }
+
   logout() {}
   refreshTokens() {}
 

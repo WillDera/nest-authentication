@@ -16,7 +16,8 @@ model User {
   updatedAt DateTime @updatedAt
 
   email        String  @unique
-  phone_number String
+  username     String  @unique @default("anonymous")
+  phone_number String  @unique
   hash         String
   hashedRt     String?
 
