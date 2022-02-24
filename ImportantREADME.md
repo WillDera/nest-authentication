@@ -1,0 +1,1 @@
+To set every route on the application using your auth service request for a jwt token in order to prevent non-logged in users from accesing it, go to "Nestjs Jwt - Access Tokens & Refresh tokens video [1:25:48] - [END]

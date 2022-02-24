@@ -1,15 +1,18 @@
 import { ForbiddenException, Injectable } from '@nestjs/common';
 import { PrismaService } from '../prisma/prisma.service';
+import { ConfigService } from '@nestjs/config';
 import { LoginDto, RegisterDto } from './dto';
 import * as bcrypt from 'bcrypt';
 import { Tokens } from './types';
 import { JwtService } from '@nestjs/jwt';
-import { env } from 'process';
-import { LoginUsernameDto } from './dto/loginUser.dto';
 
 @Injectable()
 export class AuthService {
-  constructor(private prisma: PrismaService, private jwtService: JwtService) {}
+  constructor(
+    private prisma: PrismaService,
+    private jwtService: JwtService,
+    private config: ConfigService,
+  ) {}
 
   async register(dto: RegisterDto): Promise<Tokens> {
     const hash = await this.hashData(dto.password);
@@ -74,32 +77,60 @@ export class AuthService {
     }
   }
 
-  logout() {}
-  refreshTokens() {}
+  async logout(userId: number) {
+    await this.prisma.user.updateMany({
+      where: {
+        id: userId,
+        hashedRt: {
+          not: null,
+        },
+      },
+      data: {
+        hashedRt: null,
+      },
+    });
+  }
+
+  async refreshTokens(userId: number, rt: string) {
+    const user = await this.prisma.user.findUnique({
+      where: {
+        id: userId,
+      },
+    });
+    if (!user) throw new ForbiddenException('Access Denied');
+    console.log(user);
+
+    const rtMatches = await bcrypt.compare(rt, user.hashedRt);
+    if (!rtMatches) throw new ForbiddenException('Access Denied');
+
+    const tokens = await this.getTokens(user.id, user.email);
+    await this.updateRtHash(user.id, tokens.refresh_token);
+    return tokens;
+  }
 
   hashData(data: string) {
     return bcrypt.hash(data, 10);
   }
 
-  async getTokens(userId: number, email: string) {
+  async getTokens(userId: number, info: string) {
     const [at, rt] = await Promise.all([
       this.jwtService.signAsync(
         {
           sub: userId,
-          email,
+          info,
         },
         {
-          secret: env.AT_SECRET,
+          secret: this.config.get<string>('AT_SECRET'),
           expiresIn: 60 * 10,
         },
       ),
       this.jwtService.signAsync(
         {
           sub: userId,
-          email,
+          info,
         },
         {
-          secret: env.RT_SECRET,
+          secret: this.config.get<string>('RT_SECRET'),
           expiresIn: 60 * 60 * 24 * 7,
         },
       ),
