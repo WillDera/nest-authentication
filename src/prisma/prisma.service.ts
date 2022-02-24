@@ -10,7 +10,7 @@ export class PrismaService
     super({
       datasources: {
         db: {
-          url: 'postgresql://postgres:qwerty@127.0.0.1:5432/nova_auth',
+          url: 'postgresql://postgres:qwerty@127.0.0.1:5432/nest_auth',
         },
       },
     });
